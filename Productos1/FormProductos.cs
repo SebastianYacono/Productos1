@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Entidades;
+using Negocio;
+
 
 namespace Productos1
 {
@@ -16,12 +18,16 @@ namespace Productos1
     {
         Producto NuevoProd;
         Producto ProdExistente;
+        NegProductos DatosObjProducto = new NegProductos();
         int fila;
+        bool Nuevo;
 
         public FormProductos()
         {
             InitializeComponent();
             CrearDgv();
+            LlenarDgv();
+            rbtn_Ingreso.Checked = true;
         }
 
         private void CrearDgv()
@@ -35,67 +41,127 @@ namespace Productos1
             dgv_Productos.Columns[2].Width = 60;
         }
 
+        private void LlenarDgv()
+        {
+            dgv_Productos.Rows.Clear();
+
+            DataSet ds = new DataSet();
+            ds = DatosObjProducto.listadoProductos("Todos");
+
+            if (ds.Tables[0].Rows.Count > 0)
+            {
+                foreach (DataRow dr in ds.Tables[0].Rows)
+                {
+                    dgv_Productos.Rows.Add(dr[0].ToString(), dr[1], dr[2].ToString());
+                }
+            }
+            else
+                MessageBox.Show("No hay Productos cargados en el sistema");
+        }
+
         private void btn_Cargar_Click(object sender, EventArgs e)
         {
-            NuevoProd = new Producto(int.Parse(tb_Codigo.Text), tb_Descripcion.Text);
+            int nGrabados = -1;
 
-            lbl_codigo.Text = Convert.ToString(NuevoProd.PropCodigo);
-            lbl_Descripcion.Text = NuevoProd.PropDescripcion;
-            lbl_stock.Text = Convert.ToString(NuevoProd.PropStock);
+            NuevoProd = new Producto(Convert.ToInt32(tb_Codigo.Text), tb_Descripcion.Text);
 
-            tb_Codigo.Clear();
-            tb_Descripcion.Clear();
+            nGrabados = DatosObjProducto.abmProductos("Agregar", NuevoProd);
 
-            tab_Productos.SelectedTab = tabPage2;
-            tb_Cantidad.Clear();
-            tb_Cantidad.Focus();
+            if (nGrabados == -1)
+                {
+                MessageBox.Show("No se pudo grabar el Producto en el sistema");
+                }
+            else
+            {
+                lbl_codigo.Text = Convert.ToString(NuevoProd.PropCodigo);
+                lbl_Descripcion.Text = NuevoProd.PropDescripcion;
+                lbl_stock.Text = Convert.ToString(NuevoProd.PropStock);
 
-            LlevarProdAldgv(NuevoProd);
+                tb_Codigo.Clear();
+                tb_Descripcion.Clear();
+
+                tab_Productos.SelectedTab = tabPage2;
+                tb_Cantidad.Clear();
+                tb_Cantidad.Focus();
+
+                Nuevo = true;
+                LlenarDgv();
+            }            
         }
-
-        void LlevarProdAldgv(Producto Prod)
-        {
-            dgv_Productos.Rows.Add(Prod.PropCodigo.ToString(), Prod.PropDescripcion, Prod.PropStock.ToString());
-            fila = (dgv_Productos.Rows.Count - 1);
-        }
-
-        void LlevarProdAldgv(Producto Prod, int lugar)
-        {
-            dgv_Productos[0, lugar].Value = Prod.PropCodigo.ToString();
-            dgv_Productos[1, lugar].Value = Prod.PropDescripcion;
-            dgv_Productos[2, lugar].Value = Prod.PropStock.ToString();
-        }
-
-
 
         private void btn_Aceptar_Click(object sender, EventArgs e)
         {
-            if (rbtn_Ingreso.Checked == true)
-            {
-                NuevoProd.Ingreso(int.Parse(tb_Cantidad.Text));
-            }
-            if (rbtn_Egreso.Checked == true)
-            {
-                NuevoProd.Egreso(int.Parse(tb_Cantidad.Text));
-            }
             
-            LlevarProdAldgv(NuevoProd, fila);
+            if (Nuevo == false)
+            { 
+                if (rbtn_Ingreso.Checked == true)
+                {
+                    ProdExistente.Ingreso(int.Parse(tb_Cantidad.Text));
+                                }
+                if (rbtn_Egreso.Checked == true)
+                {
+                    ProdExistente.Egreso(int.Parse(tb_Cantidad.Text));
+                }
 
-            lbl_codigo.Text = "Código";
-            lbl_Descripcion.Text = "Descripción";
-            tb_Cantidad.Clear();
-            rbtn_Ingreso.Checked = false;
-            rbtn_Egreso.Checked = false;
+                int nResultado = -1;
+
+                nResultado = DatosObjProducto.abmProductos("Modificar", ProdExistente);
+                if (nResultado != -1)
+                {
+                    LlenarDgv();
+                }
+                else
+                {
+                    MessageBox.Show("Error", "Se produjo un error al intentar modificar el Producto");
+                }
+            }
+            else
+            {
+                if (rbtn_Ingreso.Checked == true)
+                {
+                    NuevoProd.Ingreso(int.Parse(tb_Cantidad.Text));
+                }
+                if (rbtn_Egreso.Checked == true)
+                {
+                    NuevoProd.Egreso(int.Parse(tb_Cantidad.Text));
+                }
+
+                int nResultado = -1;
+
+                nResultado = DatosObjProducto.abmProductos("Modificar", NuevoProd);
+                if (nResultado != -1)
+                {
+                    LlenarDgv();
+                }
+                else
+                {
+                    MessageBox.Show("Error", "Se produjo un error al intentar modificar el Producto");
+                }
+            }
         }
 
         private void dgv_Productos_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             ProdExistente =new Producto(Convert.ToInt32(dgv_Productos.CurrentRow.Cells[0].Value),dgv_Productos.CurrentRow.Cells[1].Value.ToString(),Convert.ToInt32(dgv_Productos.CurrentRow.Cells[2].Value));
+
+            DataSet ds = new DataSet();
+
+            Nuevo = false;
+
+            ds = DatosObjProducto.listadoProductos(ProdExistente.PropCodigo.ToString());
+
+            if (ds.Tables[0].Rows.Count > 0)
+            {
+                Ds_controles(ds);
+            }            
+        }
+
+        private void Ds_controles (DataSet ds)
+        {
             lbl_codigo.Text = ProdExistente.PropCodigo.ToString();
             lbl_Descripcion.Text = ProdExistente.PropDescripcion;
             lbl_stock.Text = ProdExistente.PropStock.ToString();
             tb_Cantidad.Clear();
-            fila = e.RowIndex;
         }
     }
 }
